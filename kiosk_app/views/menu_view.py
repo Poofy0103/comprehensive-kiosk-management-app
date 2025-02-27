@@ -1,104 +1,215 @@
 import os
-
+import pymysql
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import QApplication, QMainWindow
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QApplication, QMainWindow, QHBoxLayout, QLabel, QVBoxLayout, QFrame, QPushButton, \
+    QScrollArea, QWidget, QGroupBox, QGridLayout, QStackedWidget
 
 
-class typeProductFrame(QtWidgets.QFrame):
-    def __init__(self, image_path, name):
+# Database Class
+class database:
+    def __init__(self):
+        self.connection = pymysql.connect(
+            host="34.101.167.101",
+            user="dev",
+            password="12345678x@X",
+            database="kioskapp",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        self.cursor = self.connection.cursor()
+
+    def fetch_categories(self):
+        self.cursor.execute("SELECT ID, Name, ImageURL FROM Category")
+        return self.cursor.fetchall()
+
+    def fetch_itemsall(self):
+        query = """
+        SELECT fi.ID 
+              ,fi.Name 
+              ,fi.IsBestSeller 
+              ,fh.Price 
+              ,CAST(IF(pfi.FoodItemID IS NOT NULL, IF(p.IsPercent, fh.Price*(1-(p.Discount/100)), fh.Price - p.Discount), fh.Price) AS UNSIGNED) AS DiscountedPrice 
+              ,fi.ImageURL
+              ,pfi.PromotionID
+        FROM fooditem fi 
+        INNER JOIN fooditem_history fh
+            ON fi.ID = fh.FoodItemId
+        LEFT JOIN promotionfooditem pfi
+            ON fi.ID = pfi.FoodItemID
+        LEFT JOIN promotion p
+            ON p.ID = pfi.PromotionID
+        WHERE fi.IsFulltime = True
+        AND fh.IsEffective = True 
+        UNION
+        SELECT fi.ID
+            ,fi.Name
+            ,fi.IsBestSeller
+            ,fh.Price
+            ,CAST(IF(pfi.FoodItemID IS NOT NULL, IF(p.IsPercent, fh.Price*(1-(p.Discount/100)), fh.Price - p.Discount), fh.Price) AS UNSIGNED) AS DiscountedPrice
+            ,fi.ImageURL
+            ,pfi.PromotionID 
+        FROM fooditem fi 
+        INNER JOIN fooditem_history fh
+            ON fi.id = fh.FoodItemId
+        LEFT JOIN promotionfooditem pfi
+            ON fi.ID = pfi.FoodItemID
+        LEFT JOIN promotion p
+            ON p.ID = pfi.PromotionID
+        WHERE fi.IsFulltime = False 
+        AND fh.IsEffective = True
+        AND fi.Days LIKE CONCAT('%',CAST(WEEKDAY(current_timestamp) AS CHAR),'%')
+        AND current_time BETWEEN AvailableStartTime AND AvailableEndTime;
+        """
+        # print(query)
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
+
+    # truyen vao category_id de lay cac sp thuoc category_id do
+    def fetch_items(self, category_id):
+        query = f"""
+        SELECT fi.ID 
+              ,fi.Name 
+              ,fi.IsBestSeller 
+              ,fh.Price 
+              ,CAST(IF(pfi.FoodItemID IS NOT NULL, IF(p.IsPercent, fh.Price*(1-(p.Discount/100)), fh.Price - p.Discount), fh.Price) AS UNSIGNED) AS DiscountedPrice,
+            fi.ImageURL, pfi.PromotionID
+        FROM fooditem fi
+        INNER JOIN fooditem_history fh 
+            ON fi.ID = fh.FoodItemId
+        LEFT JOIN promotionfooditem pfi 
+            ON fi.ID = pfi.FoodItemID
+        LEFT JOIN promotion p 
+            ON p.ID = pfi.PromotionID
+        WHERE fi.IsFulltime = True 
+        AND fh.IsEffective = True 
+        AND fi.CategoryID = {category_id}
+        UNION
+        SELECT fi.ID
+            ,fi.Name
+            ,fi.IsBestSeller
+            ,fh.Price,
+            CAST(IF(pfi.FoodItemID IS NOT NULL, IF(p.IsPercent, 
+            fh.Price * (1 - (p.Discount / 100)), fh.Price - p.Discount), 
+            fh.Price) AS UNSIGNED) AS DiscountedPrice,
+            fi.ImageURL, pfi.PromotionID
+        FROM fooditem fi
+        INNER JOIN fooditem_history fh 
+            ON fi.ID = fh.FoodItemId
+        LEFT JOIN promotionfooditem pfi 
+            ON fi.ID = pfi.FoodItemID
+        LEFT JOIN promotion p 
+            ON p.ID = pfi.PromotionID
+        WHERE fi.IsFulltime = False AND fh.IsEffective = True
+        AND fi.Days LIKE CONCAT('%', CAST(WEEKDAY(CURRENT_TIMESTAMP) AS CHAR), '%')
+        AND current_time BETWEEN AvailableStartTime AND AvailableEndTime
+        AND fi.CategoryID = {category_id};
+        """
+        # print(query)
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
+    def close(self):
+        self.connection.close()
+
+
+# Category Frame
+class CategoryFrame(QFrame):
+    def __init__(self, image_path, name, category_id, MainWindow):
         super().__init__()
+        self.main_window = MainWindow  # khi bấm vào frame sẽ kích hoạt mainwindow
+        self.category_id = category_id  # lấy category_id để load những sp có cùng category_id
         self.setMaximumSize(100, 116)
         self.setStyleSheet("background-color: #f0f0f0")
 
-        self.layout_product = QtWidgets.QVBoxLayout(self)
-        self.layout_product.setContentsMargins(0, 0, 0, 0)
-        self.layout_product.setSpacing(0)
-        self.layout_product.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout_categoryFrame = QVBoxLayout(self)
+        self.layout_categoryFrame.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.img_menu = QtWidgets.QLabel(self)
-        self.img_menu.setMaximumSize(90, 90)
-        self.img_menu.setPixmap(QtGui.QPixmap(image_path))
-        self.img_menu.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.img_menu.setScaledContents(True)
-        self.layout_product.addWidget(self.img_menu)
+        self.img_category = QLabel(self)
+        self.img_category.setMaximumSize(90, 90)
+        self.img_category.setPixmap(QtGui.QPixmap(image_path))
+        self.img_category.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_category.setScaledContents(True)
+        self.layout_categoryFrame.addWidget(self.img_category)
 
-        self.label_menu = QtWidgets.QLabel(name)
-        self.label_menu.setFont(QtGui.QFont("Segoe UI", 10, QtGui.QFont.Weight.Bold))
-        self.label_menu.setStyleSheet("color: #BD1906;")
-        self.label_menu.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.layout_product.addWidget(self.label_menu)
+        self.name_category = QLabel(name)
+        self.name_category.setFont(QtGui.QFont("Segoe UI", 10, QtGui.QFont.Weight.Bold))
+        self.name_category.setStyleSheet("color: #BD1906;")
+        self.name_category.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.layout_categoryFrame.addWidget(self.name_category)
+
+    # xử lý sự kiện khi có click vào categoryFrame
+    def mousePressEvent(self, event):
+        print(f"Category ID clicked: {self.category_id}")
+        self.main_window.load_items(self.name_category.text(), self.category_id)  # lấy tên của category và id
+        super().mousePressEvent(event)
 
 
-class ProductFrame(QtWidgets.QFrame):
-    def __init__(self, image_path, price, name, isbestseller):
+class ProductFrame(QFrame):
+    def __init__(self, image_path, price, name, is_bestseller):
         super().__init__()
         self.current_path = os.getcwd()
-        self.setMinimumSize(130, 180)
+        self.setFixedSize(130, 200)
         self.setStyleSheet("""
-            ProductFrame {
-                border-radius: 10px;
-                border: 2px solid rgba(0, 0, 0, 0.2); /* Viền nhẹ */
+            QFrame {
+                background-color: white;
+                border-radius: 15px;
+                border: 2px solid rgba(0, 0, 0, 0.2);
+            }
+            QLabel {
+                border: none;
+                background: transparent;
+                color: #000000
             }
         """)
-        self.layout_product = QtWidgets.QVBoxLayout(self)
-        self.layout_product.setContentsMargins(5, 5, 5, 5)
-        self.layout_product.setSpacing(0)
-        self.layout_product.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.img_menu = QtWidgets.QLabel(self)
-        self.img_menu.setMaximumSize(120, 120)
-        self.img_menu.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
-        self.img_menu.setPixmap(QtGui.QPixmap(image_path))
-        self.img_menu.setScaledContents(True)
-        self.img_menu.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # LAYOUT PRODUCTFRAME
+        layout_ProductFrame = QVBoxLayout(self)
+        layout_ProductFrame.setContentsMargins(5, 5, 5, 5)
+        # layout_ProductFrame.setSpacing(0)
 
-        self.layout_product.addWidget(self.img_menu)
-        # self.img_menu.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Hình ảnh sp
+        self.img_product = QLabel()
+        self.img_product.setFixedSize(110, 110)
+        self.img_product.setPixmap(QtGui.QPixmap(image_path))
+        self.img_product.setScaledContents(True)
+        layout_ProductFrame.addWidget(self.img_product, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
 
-        self.label_price = QtWidgets.QLabel(price)
-        self.label_price.setMinimumHeight(20)
-        self.label_price.setFont(QtGui.QFont("Segoe UI", 10))
-        self.label_price.setStyleSheet("color: #000000;")
-        self.label_price.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        self.layout_product.addWidget(self.label_price)
+        self.price_product = QLabel(price)
+        self.price_product.setFont(QtGui.QFont("Segoe UI", 10))
+        self.price_product.setWordWrap(True)
+        self.price_product.setStyleSheet("color: #000000")
+        layout_ProductFrame.addWidget(self.price_product, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
 
+        self.name_product = QLabel(name)
+        self.name_product.setFont(QtGui.QFont("Segoe UI", 10, QtGui.QFont.Weight.Bold))
+        self.name_product.setWordWrap(True)
+        self.name_product.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        if is_bestseller:
+            # layout icon + tên sp
+            self.layout_ProductName = QHBoxLayout()
+            # self.layout_ProductName.setContentsMargins(0, 0, 0, 0)
+            self.layout_ProductName.setSpacing(5)
+            layout_ProductFrame.addLayout(self.layout_ProductName)
 
-        self.label_productname = label_name(name)
-        if isbestseller == 1:
-            self.add_bestseller()
+            # hình ảnh icon
+            self.img_bestseller = QLabel()
+            self.img_bestseller.setFixedSize(30, 30)
+            self.img_bestseller.setPixmap(QtGui.QPixmap(f"{self.current_path}/../resources/images/bestseller.png"))
+            self.img_bestseller.setScaledContents(True)
+
+            # thêm icon và tên vào layout
+            self.layout_ProductName.addWidget(self.img_bestseller)
+            self.layout_ProductName.addWidget(self.name_product)
+
         else:
-            self.label_productname.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.layout_product.addWidget(self.label_productname)
-
-    def add_bestseller(self):
-        self.layout_productname = QtWidgets.QHBoxLayout()
-        self.layout_product.addLayout(self.layout_productname)
-        self.layout_productname.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.layout_productname.setSpacing(10)
-
-        self.img_bestseller = QtWidgets.QLabel(self)
-        self.img_bestseller.setMaximumSize(30, 30)
-        self.img_bestseller.setPixmap(QtGui.QPixmap(f"{self.current_path}/../resources/images/bestseller.png"))
-        # self.img_bestseller.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.img_bestseller.setScaledContents(True)
-        self.layout_productname.addWidget(self.img_bestseller)
-
-        self.label_productname.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.layout_productname.addWidget(self.label_productname)
-class label_name(QtWidgets.QLabel):
-    def __init__(self, name):
-        super().__init__(name)
-        self.setMaximumHeight(35)
-        self.setFont(QtGui.QFont("Segoe UI", 10, QtGui.QFont.Weight.Bold))
-        self.setStyleSheet("color: #000000;")
-        self.setWordWrap(True)
+            layout_ProductFrame.addWidget(self.name_product, alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
 
 
-class Button(QtWidgets.QPushButton):
+class Button(QPushButton):
     def __init__(self, name, icon_path):
-        super().__init__(name)
-
+        super().__init__()
+        self.setText(name)
         self.setIcon(QtGui.QIcon(icon_path))
         self.setIconSize(QtCore.QSize(30, 30))
         self.setFlat(True)  # bỏ viền ở ngoài của nút
@@ -114,128 +225,103 @@ class Button(QtWidgets.QPushButton):
                         background-color:#a61505;
                     }
                 """)
-class header(QtWidgets.QLabel):
-    def __init__(self, name):
-        super().__init__(name)
+class groupbox(QGroupBox):
+    def __init__(self, category_name):
+        super().__init__()
+        self.setTitle(category_name)
         self.setFont(QtGui.QFont("Segoe UI", 14, QtGui.QFont.Weight.Bold))
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setStyleSheet("background-color: #bd1906; color: #ffffff; border-radius: 5px;")
+        self.setStyleSheet("color: #bd1906;")
+        self.setMinimumSize(QtCore.QSize(317, 635))
+        # layout
+        self.layout_groupbox = QVBoxLayout(self)
+        # vùng cuộn
+        self.scroll_product = QScrollArea()
+        self.scroll_product.setWidgetResizable(True)
+        self.layout_groupbox.addWidget(self.scroll_product)
+        # widget trong vùng cuộn
+        self.scroll_widget = QWidget()
+        self.scroll_product.setWidget(self.scroll_widget)
+        # gridlayout trong widget
+        self.gridlayout = QGridLayout(self.scroll_widget)
+        self.gridlayout.setSpacing(10)
+        self.gridlayout.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+
+    def add_product(self, product, row, col):
+        self.gridlayout.addWidget(product, row, col)
+
+    def delete_product(self):
+        while self.gridlayout.count() != 0:
+            item = self.gridlayout.takeAt(0).widget()  # lấy widget ở vị trí đầu tiên của gridlayout
+            item.setParent(None)
+
+
+# Main UI
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
+        self.db = database()
+        self.current_path = os.getcwd()
         MainWindow.resize(478, 850)
 
         # widget trung tâm
-        self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
+        self.centralwidget = QWidget(parent=MainWindow)
         MainWindow.setCentralWidget(self.centralwidget)
-        self.current_path = os.getcwd()
+
         # LAYOUT CHÍNH, gồm 3 phần
-        self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
-        self.verticalLayout.setSpacing(0)
+        self.verticalLayout = QVBoxLayout(self.centralwidget)
 
         # BANNER
-        self.label_banner = QtWidgets.QLabel(parent=self.centralwidget)
+        self.label_banner = QLabel(parent=self.centralwidget)
         self.label_banner.setMinimumSize(478, 150)
-        self.label_banner.setPixmap(QtGui.QPixmap(f"{self.current_path}/../resources/images/quang-cao-la-gi-peakads.png"))
+        self.label_banner.setPixmap(
+            QtGui.QPixmap(f"{self.current_path}/../resources/images/quang-cao-la-gi-peakads.png"))
         self.label_banner.setScaledContents(True)
         self.verticalLayout.addWidget(self.label_banner)
 
-        # KHUNG CONTENT
-        self.frame_chung = QtWidgets.QFrame(parent=self.centralwidget)
+        # KHUNG CONTENT (frame menu + groupbox)
+        self.frame_chung = QFrame(parent=self.centralwidget)
         self.frame_chung.setStyleSheet("background-color: #ffffff;")
-        # self.frame_chung.setMinimumSize(QtCore.QSize(478, 650))
         self.verticalLayout.addWidget(self.frame_chung)
+        # layout
+        self.layout_content = QHBoxLayout(self.frame_chung)
 
-
-        # Layout cho khung content
-        self.layout_content = QtWidgets.QHBoxLayout(self.frame_chung)
-
-        # self.verticalLayout.addLayout(self.layout_content)
-
-        # tạo frame menu
-        self.frame_menu = QtWidgets.QFrame(self.centralwidget)
+        # FRAME MENU (tiêu đề + nội dung)
+        self.frame_menu = QFrame(self.centralwidget)
         self.frame_menu.setMaximumSize(125, 635)
         self.layout_content.addWidget(self.frame_menu)
-        self.layout_menu = QtWidgets.QVBoxLayout(self.frame_menu)
+        # layout
+        self.layout_menu = QVBoxLayout(self.frame_menu)
 
-        # tiêu đề trong frame menu
-        menu_header = header("Menu")
-        self.layout_menu.addWidget(menu_header)
+        # tiêu đề
+        self.menu_header = QLabel("Menu")
+        self.menu_header.setFont(QtGui.QFont("Segoe UI", 14, QtGui.QFont.Weight.Bold))
+        self.menu_header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.menu_header.setStyleSheet("background-color: #bd1906; color: #ffffff; border-radius: 5px;")
+        self.layout_menu.addWidget(self.menu_header)
 
-        # nội dung trong frame menu
-        self.frame_typeMenu = QtWidgets.QFrame(self.centralwidget)
-        self.frame_typeMenu.setMaximumSize(116 ,585)
-        # Tạo vùng cuộn trong frame menu
-        self.scroll_menu = QtWidgets.QScrollArea(self.frame_typeMenu)
+        # nội dung
+        self.frame_typeMenu = QFrame(self.centralwidget)
+        self.frame_typeMenu.setMaximumSize(116, 585)
+        # vùng cuộn
+        self.scroll_menu = QScrollArea(self.frame_typeMenu)
         self.scroll_menu.setWidgetResizable(True)
         self.layout_menu.addWidget(self.scroll_menu)
 
-
         # tạo widget chứa nội dung cuộn -> chèn thêm layout
-        self.widget_scroll = QtWidgets.QWidget(self.scroll_menu)
-        self.verticalLayout_menu = QtWidgets.QVBoxLayout(self.widget_scroll)
-        self.verticalLayout_menu.setContentsMargins(0, 10, 0, 10)
-        self.verticalLayout_menu.setSpacing(10)
-        self.verticalLayout_menu.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+        self.widget_scroll = QWidget()
+        self.scroll_menu.setWidget(self.widget_scroll)  # nhớ chú ý
+        # layout chứa category
+        self.layout_category = QVBoxLayout(self.widget_scroll)
+        self.layout_category.setContentsMargins(0, 10, 0, 10)
+        self.layout_category.setSpacing(10)
+        self.layout_category.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
 
-        products = [
-            (f"{self.current_path}/../resources/images/tra.png", "Trà"),
-            (f"{self.current_path}/../resources/images/tra.png", "Lẩu"),
-            (f"{self.current_path}/../resources/images/tra.png", "Trà"),
-            (f"{self.current_path}/../resources/images/tra.png", "Lẩu"),
-            (f"{self.current_path}/../resources/images/tra.png", "Trà"),
-            (f"{self.current_path}/../resources/images/tra.png", "Lẩu"),
-            (f"{self.current_path}/../resources/images/tra.png", "Trà"),
-        ]
+        # GROUPBOX
+        self.groupbox_item = groupbox("Tất cả món")
+        self.layout_content.addWidget(self.groupbox_item)
 
-        for image, name in products:
-            item = typeProductFrame(image, name)
-            self.verticalLayout_menu.addWidget(item)
-        # Đặt widget chứa nội dung cuộn
-        self.scroll_menu.setWidget(self.widget_scroll)
-
-
-
-        # GroupBox Trà
-        self.groupBox_tea = QtWidgets.QGroupBox("Trà")
-        self.groupBox_tea.setFont(QtGui.QFont("Segoe UI", 14, QtGui.QFont.Weight.Bold))
-        self.groupBox_tea.setStyleSheet("color: #bd1906;")
-        self.groupBox_tea.setMinimumSize(QtCore.QSize(317, 635))
-        self.layout_content.addWidget(self.groupBox_tea)
-
-        # Tạo vùng cuộn trong groupBox_tea
-        self.scroll_tea = QtWidgets.QScrollArea(self.groupBox_tea)
-        self.scroll_tea.setWidgetResizable(True)
-        self.scroll_tea.setWidget(QtWidgets.QWidget())
-        self.layout_tea = QtWidgets.QGridLayout(self.scroll_tea.widget())
-        # self.layout_tea.setContentsMargins(0, 0, 0, 0)
-        self.layout_tea.setSpacing(10)
-        # self.layout_tea.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-
-        # Thêm các sản phẩm vào groupBox_tea
-        tea_products = [
-            (f"{self.current_path}/../resources/images/traxoai.png", "50.000đ", "Trà đào cam sả chanh", 1),
-            (f"{self.current_path}/../resources/images/traxoai.png", "45.000đ", "Trà xoài", 0),
-            (f"{self.current_path}/../resources/images/traxoai.png", "55.000đ", "Trà vải bông tuyết hoa", 0),
-            (f"{self.current_path}/../resources/images/traxoai.png", "60.000đ", "Trà kiwi", 1),
-            (f"{self.current_path}/../resources/images/traxoai.png", "40.000đ", "Trà dâu", 0),
-            (f"{self.current_path}/../resources/images/traxoai.png", "50.000đ", "Trà đào", 1),
-            (f"{self.current_path}/../resources/images/traxoai.png", "45.000đ", "Trà xoài", 0),
-            (f"{self.current_path}/../resources/images/traxoai.png", "55.000đ", "Trà vải", 0),
-            (f"{self.current_path}/../resources/images/traxoai.png", "60.000đ", "Trà kiwi", 0),
-            (f"{self.current_path}/../resources/images/traxoai.png", "40.000đ", "Trà dâu", 0),
-        ]
-        row, col = 0, 0
-
-        for image, price, name, isbestseller in tea_products:
-            product_frame = ProductFrame(image, price, name, isbestseller)
-            self.layout_tea.addWidget(product_frame, row, col)
-            col += 1
-            if col == 2:
-                col = 0
-                row += 1
-
-        self.groupBox_tea.setLayout(QtWidgets.QVBoxLayout())
-        self.groupBox_tea.layout().addWidget(self.scroll_tea)
+        categories = self.load_categories()
+        if len(categories) > 0:
+            self.load_items(None)
 
         # LAYOUT CHỨA 2 NÚT
         self.layout_2button = QtWidgets.QHBoxLayout()
@@ -244,10 +330,32 @@ class Ui_MainWindow(object):
         # nút trang chủ
         self.pushButton_home = Button("Trang chủ", f"{self.current_path}/../resources/images/home.png")
         self.layout_2button.addWidget(self.pushButton_home)
-
         # nút giỏ hàng
         self.pushButton_shoppingcart = Button("Giỏ hàng", f"{self.current_path}/../resources/images/shopping_cart.png")
         self.layout_2button.addWidget(self.pushButton_shoppingcart)
+
+    def load_categories(self):
+        categories = self.db.fetch_categories()  # lấy danh sách của các category (ImageURL, Name, ID)
+        for category in categories:
+            category = CategoryFrame(category["ImageURL"], category["Name"], category["ID"], self)
+            self.layout_category.addWidget(category)
+        return categories
+
+    def load_items(self, category_name, category_id=None):
+        self.groupbox_item.delete_product()
+        if category_id:
+            self.groupbox_item.setTitle(category_name)
+            items = self.db.fetch_items(category_id)
+        else:
+            items = self.db.fetch_itemsall()
+        row, col = 0, 0
+        for item in items:
+            item = ProductFrame(item["ImageURL"], str(item["DiscountedPrice"]), item["Name"], item["IsBestSeller"])
+            self.groupbox_item.add_product(item, row, col)
+            col += 1
+            if col == 2:
+                col = 0
+                row += 1
 class MainWindow_Ext(Ui_MainWindow):
     def setupUi(self, MainWindow):
         super().setupUi(MainWindow)
@@ -256,12 +364,12 @@ class MainWindow_Ext(Ui_MainWindow):
     def show(self):
         self.MainWindow.show()
 
+
 app = QApplication([])
 window = MainWindow_Ext()
 window.setupUi(QMainWindow())
 window.show()
 app.exec()
-
 
 
 
