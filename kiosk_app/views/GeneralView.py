@@ -58,3 +58,12 @@ class GeneralView(QtWidgets.QMainWindow):
         self.frame_chung.setStyleSheet("background-color: rgb(189, 25, 6);")
         self.frame_chung.setMinimumSize(QtCore.QSize(478, 650))
         self.verticalLayout.addWidget(self.frame_chung)
+
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    window = GeneralView()
+    window.show()
+    sys.exit(app.exec())
+
