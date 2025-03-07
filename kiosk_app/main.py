@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 
 from common.sql_func import Database
 from kiosk_app.controllers.DineSelectViewEx import DineSelectViewEx
+from kiosk_app.controllers.KioskMenuViewEx import KioskMenuViewEx
 from kiosk_app.models.SharedDataModel import SharedDataModel
 import sys
 
@@ -24,12 +25,15 @@ class MainWindow(QMainWindow):
 
         #Khởi tạo các màn hình cố định của app (menu, chọn hình thức phục vụ...)
         self.dineSelectView = DineSelectViewEx(self.mainStackedWidget, self.sharedData, self.db)
+        self.menuView = KioskMenuViewEx(self.mainStackedWidget, self.sharedData, self.db)
 
         #Thêm các màn hình theo thứ tự
+        self.mainStackedWidget.addWidget(self.menuView)
         self.mainStackedWidget.addWidget(self.dineSelectView)
 
+
         #Đặt màn hình đầu tiên
-        self.mainStackedWidget.setCurrentWidget(self.dineSelectView)
+        self.mainStackedWidget.setCurrentWidget(self.menuView)
 
 
 if __name__ == "__main__":

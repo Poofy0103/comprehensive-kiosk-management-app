@@ -31,7 +31,7 @@ class GeneralView(QtWidgets.QMainWindow):
         # thanh ngang
         self.frame_ngang = QtWidgets.QFrame(parent=self.centralwidget)
         self.frame_ngang.setObjectName("frame_ngang")
-        self.frame_ngang.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.frame_ngang.setStyleSheet("background-color: #ffffff; padding: 0px;")
         self.frame_ngang.setMinimumSize(QtCore.QSize(478, 50))
 
         # tạo layout ngang để chứa nút và spacer
@@ -39,7 +39,7 @@ class GeneralView(QtWidgets.QMainWindow):
 
         # nút quay lại
         self.pushButton_back = QtWidgets.QPushButton("Quay lại", self.frame_ngang)
-        self.pushButton_back.setObjectName("pushButton_back")
+        #self.pushButton_back.setObjectName("pushButton_back")
         self.pushButton_back.setIcon(QtGui.QIcon("kiosk_app/resources/images/ic_back.png"))
         self.pushButton_back.setIconSize(QtCore.QSize(25, 25))
         self.pushButton_back.setFlat(True) # bỏ viền ở ngoài của nút
@@ -58,20 +58,3 @@ class GeneralView(QtWidgets.QMainWindow):
         self.frame_chung.setStyleSheet("background-color: rgb(189, 25, 6);")
         self.frame_chung.setMinimumSize(QtCore.QSize(478, 650))
         self.verticalLayout.addWidget(self.frame_chung)
-
-        # thiết lập các ngôn ngữ và kết nối các slot
-        self.retranslateUi(self)
-        QtCore.QMetaObject.connectSlotsByName(self)
-
-    def retranslateUi(self, MainWindow):
-        # thiết lập văn bản cho các widget
-        _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.pushButton_back.setText(_translate("MainWindow", "Quay lại"))
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    window = GeneralView()
-    window.show()
-    sys.exit(app.exec())

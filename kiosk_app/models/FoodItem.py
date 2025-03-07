@@ -15,7 +15,7 @@ class FoodItem:
         self.discounted_price = discounted_price
         self.promotion_id = promotion_id
         self.discount = self.price - self.discounted_price
-
+        print(f"FoodItem created: {self}")
     def __repr__(self):
         return (f'{self.__class__.__name__}'
                 f'(id={self.id!r}, name={self.name!r}), price={self.price!r}')
