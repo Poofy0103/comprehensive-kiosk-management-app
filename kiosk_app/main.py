@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
         #Đặt màn hình đầu tiên
         self.mainStackedWidget.setCurrentWidget(self.menuView)
 
-        #Kết nối màn hình -> CHECK GIÙM EM
+        #Kết nối màn hình-> CHECK GIÙM EM
         self.menuView.kioskMenuWidget.pushButton_shoppingcart.clicked.connect(self.show_cartView)
     def show_cartView(self):
         self.mainStackedWidget.setCurrentWidget(self.cartView)

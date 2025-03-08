@@ -107,10 +107,7 @@ class KioskMenuViewEx(GeneralView.GeneralView):
         row = 0
         col = 0
         for item in items:
-            product_frame = ProductFrame(
-                item["ID"],item["ImageURL"], item["Price"],
-                item["DiscountedPrice"], item["Name"], item["IsBestSeller"]
-            )
+            product_frame = ProductFrame(item["ID"],item["ImageURL"], item["Price"], item["DiscountedPrice"], item["Name"], item["IsBestSeller"])
             product_frame.productClicked.connect(partial(self.click_product, item))
 
             self.kioskMenuWidget.groupbox_item.add_product(product_frame, row, col)

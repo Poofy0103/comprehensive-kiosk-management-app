@@ -163,8 +163,6 @@ class groupbox(QGroupBox):
             item = self.gridlayout.takeAt(0).widget()  # lấy widget ở vị trí đầu tiên của gridlayout
             item.setParent(None)
 
-
-# Main UI
 class MenuWidget(QWidget):
     def __init__(self):
         super().__init__()
