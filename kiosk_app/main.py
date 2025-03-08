@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from common.sql_func import Database
 from kiosk_app.controllers.DineSelectViewEx import DineSelectViewEx
 from kiosk_app.controllers.KioskMenuViewEx import KioskMenuViewEx
+from kiosk_app.controllers.OrderControllerEx import OrderControllerEx
 from kiosk_app.models.SharedDataModel import SharedDataModel
 import sys
 
@@ -26,6 +27,8 @@ class MainWindow(QMainWindow):
         #Khởi tạo các màn hình cố định của app (menu, chọn hình thức phục vụ...)
         self.dineSelectView = DineSelectViewEx(self.mainStackedWidget, self.sharedData, self.db)
         self.menuView = KioskMenuViewEx(self.mainStackedWidget, self.sharedData, self.db)
+        self.cartView = OrderControllerEx(self.mainStackedWidget, self.sharedData, self.db) # CHECK GIÙM EM
+
 
         #Thêm các màn hình theo thứ tự
         self.mainStackedWidget.addWidget(self.menuView)
@@ -35,6 +38,10 @@ class MainWindow(QMainWindow):
         #Đặt màn hình đầu tiên
         self.mainStackedWidget.setCurrentWidget(self.menuView)
 
+        #Kết nối màn hình -> CHECK GIÙM EM
+        self.menuView.kioskMenuWidget.pushButton_shoppingcart.clicked.connect(self.show_cartView)
+    def show_cartView(self):
+        self.mainStackedWidget.setCurrentWidget(self.cartView)
 
 
 if __name__ == "__main__":

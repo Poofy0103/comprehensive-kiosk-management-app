@@ -3,9 +3,10 @@ from functools import partial
 from PyQt6.QtWidgets import QStackedWidget, QVBoxLayout
 
 from common.sql_func import Database
-from kiosk_app.controllers.OrderControllerEx import OrderControllerEx
+# from kiosk_app.controllers.OrderControllerEx import OrderControllerEx
 from kiosk_app.controllers.ToppingSelectionViewEx import ToppingSelectionEx
 
+from kiosk_app.controllers.DineSelectViewEx import DineSelectViewEx
 from kiosk_app.models.FoodItem import FoodItem
 from kiosk_app.models.SharedDataModel import SharedDataModel
 from kiosk_app.views import GeneralView, KioskMenuView
@@ -34,12 +35,6 @@ class KioskMenuViewEx(GeneralView.GeneralView):
 
         self.load_categories()
         self.load_items(category_name=None, category_id=None)
-
-        self.kioskMenuWidget.pushButton_shoppingcart.clicked.connect(self.show_cartView)
-    def show_cartView(self):
-        cart_view = OrderControllerEx(self.mainStackedWidget, self.sharedData, self.db)
-        self.mainStackedWidget.addWidget(cart_view)
-        self.mainStackedWidget.setCurrentWidget(cart_view)
 
     def load_categories(self):
         category_query = "SELECT ID, Name, ImageURL FROM Category"
@@ -137,6 +132,6 @@ class KioskMenuViewEx(GeneralView.GeneralView):
         self.sharedData.set_selected_item(food_item)
         self.show_addToppingView()
     def show_addToppingView(self):
-        addToppingView = ToppingSelectionEx(self.mainStackedWidget, self.sharedData, self.db)
+        addToppingView = ToppingSelectionEx(self.mainStackedWidget, self.sharedData, self.db) # CHECK GIÙM EM KHÚC NÀY
         self.mainStackedWidget.addWidget(addToppingView)
         self.mainStackedWidget.setCurrentWidget(addToppingView)
